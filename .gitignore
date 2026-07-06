@@ -1,0 +1,49 @@
+# Entornos y credenciales
+.env
+*.env
+.venv/
+venv/
+env/
+
+# OCI / credenciales de nube
+.oci/
+oci_api_key.pem
+*.pem
+
+# Datos sensibles y crudos (no versionar documentos reales de Andina Bank)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Índices vectoriales locales (Chroma/Qdrant embebido, etc.)
+vector_store/
+*.sqlite3
+*.db
+
+# Logs de ejecución
+logs/*.jsonl
+logs/*.log
+!logs/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# Docker
+*.tar
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Sistema operativo / IDE
+.DS_Store
+.vscode/*
+!.vscode/settings.json
