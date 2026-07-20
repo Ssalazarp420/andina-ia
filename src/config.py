@@ -16,9 +16,9 @@ class Settings:
     APP_ENV: str = os.getenv("APP_ENV", "local")
 
     # --- LLM (Fase 5) ---
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "cohere")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
-    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
+    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "")
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", 0.1))
 
     # --- Embeddings (Fase 3) ---
@@ -34,12 +34,20 @@ class Settings:
     RETRIEVAL_TOP_K: int = int(os.getenv("RETRIEVAL_TOP_K", 20))
     RERANK_TOP_N: int = int(os.getenv("RERANK_TOP_N", 5))
     SCORE_THRESHOLD: float = float(os.getenv("SCORE_THRESHOLD", 0.55))
+    RERANKER_PROVIDER: str = os.getenv("RERANKER_PROVIDER", "cohere")
+    RERANKER_MODEL_NAME: str = os.getenv("RERANKER_MODEL_NAME", "")
 
     # --- OCI (Fase 7) ---
+    OCI_CONFIG_FILE: str = os.getenv("OCI_CONFIG_FILE", os.path.expanduser("~/.oci/config"))
+    OCI_CONFIG_PROFILE: str = os.getenv("OCI_CONFIG_PROFILE", "DEFAULT")
     OCI_REGION: str = os.getenv("OCI_REGION", "sa-saopaulo-1")
     OCI_COMPARTMENT_OCID: str = os.getenv("OCI_COMPARTMENT_OCID", "")
     OCI_OBJECT_STORAGE_BUCKET: str = os.getenv("OCI_OBJECT_STORAGE_BUCKET", "andina-bank-documentos")
     OCI_VAULT_OCID: str = os.getenv("OCI_VAULT_OCID", "")
+    OCI_GENAI_CHAT_MODEL_ID: str = os.getenv("OCI_GENAI_CHAT_MODEL_ID", "")
+    OCI_GENAI_CHAT_ENDPOINT_ID: str = os.getenv("OCI_GENAI_CHAT_ENDPOINT_ID", "")
+    OCI_GENAI_RERANK_MODEL_ID: str = os.getenv("OCI_GENAI_RERANK_MODEL_ID", "")
+    OCI_GENAI_RERANK_ENDPOINT_ID: str = os.getenv("OCI_GENAI_RERANK_ENDPOINT_ID", "")
 
     # --- Logging (Fase 8) ---
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
