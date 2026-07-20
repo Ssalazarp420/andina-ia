@@ -1,0 +1,65 @@
+andina-ia/
+│
+├── app/
+│   └── streamlit_app.py          # Fase 6 — Interfaz de chat, fuentes citadas, feedback 👍👎, historial
+│
+├── data/
+│   ├── raw/                      # Documentos originales de Andina Bank (PDF/CSV/XLSX) — no versionado
+│   │   └── .gitkeep
+│   └── processed/                # Chunks/artefactos intermedios — no versionado
+│       └── .gitkeep
+│
+├── docker/
+│   └── Dockerfile                # Fase 7 — Imagen para OCIR / OKE / Container Instances
+│
+├── infra/
+│   └── oci/
+│       └── README.md             # Fase 7 — Checklist y comandos de despliegue en OCI
+│
+├── logs/
+│   └── .gitkeep                  # Fase 8 — Destino de logs .jsonl (se genera en tiempo de ejecución)
+│
+├── scripts/
+│   └── run_ingestion.py          # Orquestador ejecutable: recorre data/raw/ y corre Fases 2+3
+│
+├── src/
+│   ├── __init__.py
+│   ├── config.py                 # Configuración centralizada (variables de entorno)
+│   │
+│   ├── ingestion/                # Fase 2 — Proceso y extracción de contenido
+│   │   ├── __init__.py
+│   │   ├── extractors.py         # Extracción por formato (PDF, DOCX, XLSX, CSV, PPTX, MD/HTML)
+│   │   ├── cleaning.py           # Limpieza de ruidos, encabezados/pies repetidos
+│   │   └── chunking.py           # Chunking de tamaño fijo con overlap + metadatos
+│   │
+│   ├── indexing/                 # Fase 3 — Indexación
+│   │   ├── __init__.py
+│   │   ├── embeddings.py         # Cliente de embeddings (mismo modelo indexación/consulta)
+│   │   └── vector_store.py       # Wrapper de la base vectorial (Chroma local por defecto)
+│   │
+│   ├── retrieval/                # Fase 4 — Camada de recuperación (RAG)
+│   │   ├── __init__.py
+│   │   ├── retriever.py          # Orquesta: embed query → búsqueda → filtro → rerank → contexto
+│   │   └── reranker.py           # Reclasificación de candidatos (score provisional a reemplazar)
+│   │
+│   ├── generation/                # Fase 5 — Producción y validación de respuestas
+│   │   ├── __init__.py
+│   │   ├── prompts.py            # Prompt de "mundo cerrado" + ensamblaje de contexto
+│   │   └── llm.py                # Inferencia del LLM + fallback si no hay contexto suficiente
+│   │
+│   └── utils/
+│       ├── __init__.py
+│       └── logger.py             # Fase 8 — Registro .jsonl (pregunta, fuentes, latencia)
+│
+├── tests/
+│   └── test_chunking.py          # Pruebas unitarias base (pytest)
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                # CI básico: instala dependencias y corre tests en cada push/PR
+│
+├── .env.example                  # Plantilla de variables de entorno (LLM, embeddings, OCI, etc.)
+├── .gitignore                    # Excluye .env, data/raw real, vector_store, logs, etc.
+├── .dockerignore
+├── requirements.txt              # Dependencias Python del proyecto
+└── README.md                     # Descripción, arquitectura, stack, guía local, QA, evidencia OCI
