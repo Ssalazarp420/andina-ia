@@ -44,8 +44,6 @@ class Settings:
     OCI_COMPARTMENT_OCID: str = os.getenv("OCI_COMPARTMENT_OCID", "")
     OCI_OBJECT_STORAGE_BUCKET: str = os.getenv("OCI_OBJECT_STORAGE_BUCKET", "andina-bank-documentos")
     OCI_VAULT_OCID: str = os.getenv("OCI_VAULT_OCID", "")
-    OCI_GENAI_EMBED_MODEL_ID: str = os.getenv("OCI_GENAI_EMBED_MODEL_ID", "")
-    OCI_GENAI_EMBED_ENDPOINT_ID: str = os.getenv("OCI_GENAI_EMBED_ENDPOINT_ID", "")
     OCI_GENAI_CHAT_MODEL_ID: str = os.getenv("OCI_GENAI_CHAT_MODEL_ID", "")
     OCI_GENAI_CHAT_ENDPOINT_ID: str = os.getenv("OCI_GENAI_CHAT_ENDPOINT_ID", "")
     OCI_GENAI_RERANK_MODEL_ID: str = os.getenv("OCI_GENAI_RERANK_MODEL_ID", "")

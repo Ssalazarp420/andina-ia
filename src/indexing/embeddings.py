@@ -4,8 +4,6 @@ IMPORTANTE: el modelo usado aquí debe ser exactamente el mismo que se
 use luego en la Fase 4 para vectorizar la pregunta del usuario.
 """
 
-from typing import Any
-
 from src.config import settings
 
 
@@ -15,7 +13,7 @@ class EmbeddingClient:
     def __init__(self, provider: str | None = None, model_name: str | None = None):
         self.provider = provider or settings.EMBEDDING_PROVIDER
         self.model_name = model_name or settings.EMBEDDING_MODEL_NAME
-        self._client: Any | None = self._init_client()
+        self._client = self._init_client()
 
     def _init_client(self):
         if self.provider == "cohere":
@@ -39,13 +37,6 @@ class EmbeddingClient:
 
         raise NotImplementedError(f"Proveedor de embeddings no soportado aún: {self.provider}")
 
-    @staticmethod
-    def _build_serving_mode(oci_models_module):
-        if settings.OCI_GENAI_EMBED_ENDPOINT_ID:
-            return oci_models_module.DedicatedServingMode(endpoint_id=settings.OCI_GENAI_EMBED_ENDPOINT_ID)
-
-        return oci_models_module.OnDemandServingMode(model_id=settings.OCI_GENAI_EMBED_MODEL_ID)
-
     def _embed_oci(self, texts: list[str], input_type: str) -> list[list[float]]:
         if not self._client:
             raise RuntimeError("No se pudo inicializar el cliente OCI para embeddings.")
@@ -53,15 +44,15 @@ class EmbeddingClient:
         if not settings.OCI_COMPARTMENT_OCID:
             raise RuntimeError("Falta OCI_COMPARTMENT_OCID para generar embeddings con OCI.")
 
-        if not settings.OCI_GENAI_EMBED_ENDPOINT_ID and not settings.OCI_GENAI_EMBED_MODEL_ID:
-            raise RuntimeError("Falta OCI_GENAI_EMBED_MODEL_ID o OCI_GENAI_EMBED_ENDPOINT_ID para generar embeddings con OCI.")
+        if not self.model_name:
+            raise RuntimeError("Falta EMBEDDING_MODEL_NAME para generar embeddings con OCI.")
 
         from oci.generative_ai_inference import models as oci_models
 
         request = oci_models.EmbedTextDetails(
             compartment_id=settings.OCI_COMPARTMENT_OCID,
             inputs=texts,
-            serving_mode=self._build_serving_mode(oci_models),
+            serving_mode=oci_models.OnDemandServingMode(model_id=self.model_name),
             input_type=input_type,
             is_echo=False,
             embedding_types=[oci_models.EmbedTextDetails.EMBEDDING_TYPES_FLOAT],
