@@ -31,7 +31,7 @@ class Retriever:
         top_n = top_n or settings.RERANK_TOP_N
 
         # 1. Embedding de la pregunta
-        query_vector = self.embedding_client.embed_text(question)
+        query_vector = self.embedding_client.embed_text(question, input_type="SEARCH_QUERY")
 
         # 2. Búsqueda semántica amplia + 3. filtrado por metadatos
         raw_results = self.vector_store.query(

@@ -22,9 +22,9 @@ class Settings:
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", 0.1))
 
     # --- Embeddings (Fase 3) ---
-    EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "openai")
+    EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "cohere")
     EMBEDDING_API_KEY: str = os.getenv("EMBEDDING_API_KEY", "")
-    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small")
+    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "")
 
     # --- Vector DB (Fase 3) ---
     VECTOR_DB_PROVIDER: str = os.getenv("VECTOR_DB_PROVIDER", "chroma")
@@ -44,6 +44,8 @@ class Settings:
     OCI_COMPARTMENT_OCID: str = os.getenv("OCI_COMPARTMENT_OCID", "")
     OCI_OBJECT_STORAGE_BUCKET: str = os.getenv("OCI_OBJECT_STORAGE_BUCKET", "andina-bank-documentos")
     OCI_VAULT_OCID: str = os.getenv("OCI_VAULT_OCID", "")
+    OCI_GENAI_EMBED_MODEL_ID: str = os.getenv("OCI_GENAI_EMBED_MODEL_ID", "")
+    OCI_GENAI_EMBED_ENDPOINT_ID: str = os.getenv("OCI_GENAI_EMBED_ENDPOINT_ID", "")
     OCI_GENAI_CHAT_MODEL_ID: str = os.getenv("OCI_GENAI_CHAT_MODEL_ID", "")
     OCI_GENAI_CHAT_ENDPOINT_ID: str = os.getenv("OCI_GENAI_CHAT_ENDPOINT_ID", "")
     OCI_GENAI_RERANK_MODEL_ID: str = os.getenv("OCI_GENAI_RERANK_MODEL_ID", "")

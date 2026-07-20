@@ -78,7 +78,7 @@ def run() -> None:
             print("  ⚠️  Documento vacío tras la limpieza, se omite.")
             continue
 
-        embeddings = embedding_client.embed_batch([c.text for c in chunks])
+        embeddings = embedding_client.embed_batch([c.text for c in chunks], input_type="SEARCH_DOCUMENT")
         vector_store.add_chunks(chunks, embeddings)
 
         print(f"  ✅ {len(chunks)} chunks indexados.")
