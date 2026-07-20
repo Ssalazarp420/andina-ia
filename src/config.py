@@ -44,9 +44,25 @@ class Settings:
     OCI_COMPARTMENT_OCID: str = os.getenv("OCI_COMPARTMENT_OCID", "")
     OCI_OBJECT_STORAGE_BUCKET: str = os.getenv("OCI_OBJECT_STORAGE_BUCKET", "andina-bank-documentos")
     OCI_VAULT_OCID: str = os.getenv("OCI_VAULT_OCID", "")
-    OCI_GENAI_CHAT_MODEL_ID: str = os.getenv("OCI_GENAI_CHAT_MODEL_ID", "")
+
+    # --- OCI Generative AI Inference (Fases 3, 4, 5) ---
+    # El endpoint de inferencia NO se infiere solo del config file de OCI:
+    # el SDK exige pasarlo explícitamente al construir GenerativeAiInferenceClient.
+    # Se puede sobreescribir con OCI_GENAI_INFERENCE_ENDPOINT en el .env si hace falta
+    # (por ejemplo, para regiones "sovereign" con dominio distinto).
+    OCI_GENAI_INFERENCE_ENDPOINT: str = os.getenv(
+        "OCI_GENAI_INFERENCE_ENDPOINT",
+        f"https://inference.generativeai.{OCI_REGION}.oci.oraclecloud.com",
+    )
+
+    # IDs de modelo para chat y rerank en modo on-demand.
+    # Se leen primero de las variables "canónicas" OCI_GENAI_*_MODEL_ID (para
+    # cuando se quiera separar explícitamente el model_id de OCI del nombre
+    # genérico), y si no están definidas, caen de vuelta a LLM_MODEL_NAME /
+    # RERANKER_MODEL_NAME (que es lo que hoy trae el .env real del proyecto).
+    OCI_GENAI_CHAT_MODEL_ID: str = os.getenv("OCI_GENAI_CHAT_MODEL_ID", LLM_MODEL_NAME)
     OCI_GENAI_CHAT_ENDPOINT_ID: str = os.getenv("OCI_GENAI_CHAT_ENDPOINT_ID", "")
-    OCI_GENAI_RERANK_MODEL_ID: str = os.getenv("OCI_GENAI_RERANK_MODEL_ID", "")
+    OCI_GENAI_RERANK_MODEL_ID: str = os.getenv("OCI_GENAI_RERANK_MODEL_ID", RERANKER_MODEL_NAME)
     OCI_GENAI_RERANK_ENDPOINT_ID: str = os.getenv("OCI_GENAI_RERANK_ENDPOINT_ID", "")
 
     # --- Logging (Fase 8) ---

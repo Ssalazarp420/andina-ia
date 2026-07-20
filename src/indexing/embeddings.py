@@ -19,6 +19,7 @@ class EmbeddingClient:
         if self.provider == "cohere":
             try:
                 import oci
+                from oci.retry import NoneRetryStrategy
 
                 config = oci.config.from_file(settings.OCI_CONFIG_FILE, settings.OCI_CONFIG_PROFILE)
                 if settings.OCI_REGION:
@@ -26,8 +27,14 @@ class EmbeddingClient:
 
                 from oci.generative_ai_inference import GenerativeAiInferenceClient
 
-                return GenerativeAiInferenceClient(config)
-            except Exception:
+                return GenerativeAiInferenceClient(
+                    config=config,
+                    service_endpoint=settings.OCI_GENAI_INFERENCE_ENDPOINT,
+                    retry_strategy=NoneRetryStrategy(),
+                    timeout=(10, 240),
+                )
+            except Exception as exc:
+                print(f"  ⚠️  No se pudo inicializar el cliente OCI Generative AI (embeddings): {exc}")
                 return None
 
         if self.provider == "openai":
@@ -59,7 +66,23 @@ class EmbeddingClient:
         )
 
         result = self._client.embed_text(request).data
-        return result.embeddings or []
+
+        # Los modelos v3 (embed-multilingual-v3.0, etc.) devuelven los vectores
+        # directamente en result.embeddings. Cohere Embed v4 (embed-v4.0) en
+        # cambio puede devolver result.embeddings == None y traer los vectores
+        # dentro de result.embeddings_by_type["float"]. Soportamos ambos casos.
+        if result.embeddings:
+            return result.embeddings
+
+        embeddings_by_type = getattr(result, "embeddings_by_type", None) or {}
+        float_embeddings = embeddings_by_type.get("float")
+        if float_embeddings:
+            return float_embeddings
+
+        raise RuntimeError(
+            "La respuesta de OCI no trajo embeddings en 'embeddings' ni en "
+            "'embeddings_by_type[\"float\"]'. Revisa el modelo/parámetros usados."
+        )
 
     def embed_text(self, text: str, input_type: str = "SEARCH_QUERY") -> list[float]:
         """Genera el vector de embedding para un único texto."""
