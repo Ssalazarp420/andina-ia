@@ -42,6 +42,11 @@ class Settings:
     RERANKER_MODEL_NAME: str = os.getenv("RERANKER_MODEL_NAME", "")
 
     # --- OCI (Fase 7) ---
+    # "config_file": autenticación local con API Key + ~/.oci/config (dev).
+    # "resource_principal": el propio recurso de OCI (Container Instance, OKE,
+    # Functions) se autentica solo, sin necesitar ningún archivo .pem. Es el
+    # modo recomendado para producción.
+    OCI_AUTH_MODE: str = os.getenv("OCI_AUTH_MODE", "config_file")
     OCI_CONFIG_FILE: str = os.getenv("OCI_CONFIG_FILE", os.path.expanduser("~/.oci/config"))
     OCI_CONFIG_PROFILE: str = os.getenv("OCI_CONFIG_PROFILE", "DEFAULT")
     OCI_REGION: str = os.getenv("OCI_REGION", "sa-saopaulo-1")

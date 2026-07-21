@@ -23,20 +23,17 @@ class Reranker:
                     print(f"  ⚠️  No se pudo inicializar el cliente Cohere externo (rerank): {exc}")
 
             try:
-                import oci
                 from oci.retry import NoneRetryStrategy
 
                 if not settings.OCI_COMPARTMENT_OCID:
                     return None
 
-                config = oci.config.from_file(settings.OCI_CONFIG_FILE, settings.OCI_CONFIG_PROFILE)
-                if settings.OCI_REGION:
-                    config["region"] = settings.OCI_REGION
-
                 from oci.generative_ai_inference import GenerativeAiInferenceClient
 
+                from src.utils.oci_auth import get_oci_auth_kwargs
+
                 return GenerativeAiInferenceClient(
-                    config=config,
+                    **get_oci_auth_kwargs(),
                     service_endpoint=settings.OCI_GENAI_INFERENCE_ENDPOINT,
                     retry_strategy=NoneRetryStrategy(),
                     timeout=(10, 240),
