@@ -38,6 +38,7 @@ class Settings:
     RERANK_TOP_N: int = int(os.getenv("RERANK_TOP_N", 5))
     SCORE_THRESHOLD: float = float(os.getenv("SCORE_THRESHOLD", 0.55))
     RERANKER_PROVIDER: str = os.getenv("RERANKER_PROVIDER", "cohere")
+    RERANKER_API_KEY: str = os.getenv("RERANKER_API_KEY", "")
     RERANKER_MODEL_NAME: str = os.getenv("RERANKER_MODEL_NAME", "")
 
     # --- OCI (Fase 7) ---

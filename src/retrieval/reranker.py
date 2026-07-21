@@ -14,6 +14,14 @@ class Reranker:
 
     def _init_client(self):
         if self.provider == "cohere":
+            if settings.RERANKER_API_KEY:
+                try:
+                    from cohere import Client
+
+                    return Client(api_key=settings.RERANKER_API_KEY)
+                except Exception as exc:
+                    print(f"  ⚠️  No se pudo inicializar el cliente Cohere externo (rerank): {exc}")
+
             try:
                 import oci
                 from oci.retry import NoneRetryStrategy
@@ -56,42 +64,62 @@ class Reranker:
         if not candidates:
             return []
 
-        if self.provider == "cohere" and self._client and settings.OCI_COMPARTMENT_OCID:
-            try:
-                from oci.generative_ai_inference import models as oci_models
+        if self.provider == "cohere" and self._client:
+            if settings.RERANKER_API_KEY:
+                try:
+                    response = self._client.rerank(
+                        model=settings.RERANKER_MODEL_NAME or "rerank-v3.5",
+                        query=question,
+                        documents=[candidate.get("text", "") for candidate in candidates],
+                        top_n=top_n,
+                    )
+                    ranked_candidates = []
+                    for result in response.results:
+                        index = result.index
+                        if 0 <= index < len(candidates):
+                            ranked_candidates.append(
+                                {
+                                    **candidates[index],
+                                    "score": float(result.relevance_score),
+                                }
+                            )
+                    if ranked_candidates:
+                        return ranked_candidates[:top_n]
+                except Exception as exc:
+                    print(f"  ⚠️  Rerank externo no disponible, usando fallback local: {exc}")
 
-                serving_mode = self._build_serving_mode(oci_models)
+            if settings.OCI_COMPARTMENT_OCID:
+                try:
+                    from oci.generative_ai_inference import models as oci_models
 
-                rerank_request = oci_models.RerankTextDetails(
-                    compartment_id=settings.OCI_COMPARTMENT_OCID,
-                    input=question,
-                    documents=[candidate.get("text", "") for candidate in candidates],
-                    top_n=top_n,
-                    serving_mode=serving_mode,
-                    is_echo=False,
-                )
+                    serving_mode = self._build_serving_mode(oci_models)
 
-                result = self._client.rerank_text(rerank_request).data
-                ranked_candidates = []
+                    rerank_request = oci_models.RerankTextDetails(
+                        compartment_id=settings.OCI_COMPARTMENT_OCID,
+                        input=question,
+                        documents=[candidate.get("text", "") for candidate in candidates],
+                        top_n=top_n,
+                        serving_mode=serving_mode,
+                        is_echo=False,
+                    )
 
-                for document_rank in result.document_ranks:
-                    index = document_rank.index
-                    if 0 <= index < len(candidates):
-                        ranked_candidates.append(
-                            {
-                                **candidates[index],
-                                "score": float(document_rank.relevance_score),
-                            }
-                        )
+                    result = self._client.rerank_text(rerank_request).data
+                    ranked_candidates = []
 
-                if ranked_candidates:
-                    return ranked_candidates[:top_n]
-            except Exception as exc:
-                # El modelo de Rerank de Cohere en OCI hoy solo está disponible en
-                # modo "dedicated" (no on-demand), así que en free tier este except
-                # se va a disparar casi siempre: caemos al fallback local, que es
-                # el reranker "real" en la práctica para este proyecto.
-                print(f"  ⚠️  Rerank OCI no disponible, usando fallback local: {exc}")
+                    for document_rank in result.document_ranks:
+                        index = document_rank.index
+                        if 0 <= index < len(candidates):
+                            ranked_candidates.append(
+                                {
+                                    **candidates[index],
+                                    "score": float(document_rank.relevance_score),
+                                }
+                            )
+
+                    if ranked_candidates:
+                        return ranked_candidates[:top_n]
+                except Exception as exc:
+                    print(f"  ⚠️  Rerank OCI no disponible, usando fallback local: {exc}")
 
         # Fallback local por distancia vectorial. Chroma se configura con
         # métrica coseno (ver VectorStore), así que 'distance' está en el
