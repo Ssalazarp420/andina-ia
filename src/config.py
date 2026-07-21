@@ -16,7 +16,10 @@ class Settings:
     APP_ENV: str = os.getenv("APP_ENV", "local")
 
     # --- LLM (Fase 5) ---
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "cohere")
+    # "oci" = OCI Generative AI Inference (soporta tanto modelos Cohere como
+    # Meta/Google/xAI, se detecta automáticamente por el prefijo del model_id).
+    # "openai" = API pública de OpenAI.
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "oci")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "")
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", 0.1))

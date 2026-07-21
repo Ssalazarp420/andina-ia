@@ -12,7 +12,7 @@ class ResponseGenerator:
         self._client = self._init_client()
 
     def _init_client(self):
-        if self.provider == "cohere":
+        if self.provider == "oci":
             try:
                 import oci
                 from oci.retry import NoneRetryStrategy
@@ -47,6 +47,64 @@ class ResponseGenerator:
 
         return oci_models_module.OnDemandServingMode(model_id=settings.OCI_GENAI_CHAT_MODEL_ID)
 
+    def _call_oci_cohere(self, oci_models, question, retrieved_chunks, serving_mode):
+        chat_request = oci_models.CohereChatRequest(
+            message=question,
+            preamble_override=SYSTEM_PROMPT,
+            documents=build_cohere_documents(retrieved_chunks),
+            temperature=settings.LLM_TEMPERATURE,
+            max_tokens=800,
+            citation_quality=oci_models.CohereChatRequest.CITATION_QUALITY_ACCURATE,
+            safety_mode=oci_models.CohereChatRequest.SAFETY_MODE_STRICT,
+            prompt_truncation=oci_models.CohereChatRequest.PROMPT_TRUNCATION_OFF,
+        )
+
+        chat_details = oci_models.ChatDetails(
+            compartment_id=settings.OCI_COMPARTMENT_OCID,
+            serving_mode=serving_mode,
+            chat_request=chat_request,
+        )
+
+        result = self._client.chat(chat_details).data
+        chat_response = getattr(result, "chat_response", None)
+        if chat_response is not None and getattr(chat_response, "text", None):
+            return chat_response.text
+        return None
+
+    def _call_oci_generic(self, oci_models, question, retrieved_chunks, serving_mode):
+        """Rama genérica: Meta Llama, Google Gemini, xAI Grok, etc. en OCI.
+        Estos modelos no soportan el parámetro 'documents' con citación
+        automática como Cohere, así que el contexto va inyectado directo en
+        el mensaje de usuario (build_user_prompt ya arma ese bloque)."""
+        user_prompt = build_user_prompt(question, retrieved_chunks)
+
+        messages = [
+            oci_models.SystemMessage(content=[oci_models.TextContent(text=SYSTEM_PROMPT)]),
+            oci_models.UserMessage(content=[oci_models.TextContent(text=user_prompt)]),
+        ]
+
+        chat_request = oci_models.GenericChatRequest(
+            api_format=oci_models.BaseChatRequest.API_FORMAT_GENERIC,
+            messages=messages,
+            max_tokens=800,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+
+        chat_details = oci_models.ChatDetails(
+            compartment_id=settings.OCI_COMPARTMENT_OCID,
+            serving_mode=serving_mode,
+            chat_request=chat_request,
+        )
+
+        result = self._client.chat(chat_details).data
+        chat_response = getattr(result, "chat_response", None)
+        choices = getattr(chat_response, "choices", None) if chat_response else None
+        if choices:
+            content = choices[0].message.content
+            if content:
+                return content[0].text
+        return None
+
     def generate_answer(self, question: str, retrieved_chunks: list[dict]) -> str:
         """
         Genera la respuesta final. Si `retrieved_chunks` viene vacío
@@ -60,49 +118,32 @@ class ResponseGenerator:
                 "a través de los canales oficiales de soporte."
             )
 
-        user_prompt = build_user_prompt(question, retrieved_chunks)
-
-        if self.provider == "cohere" and self._client and settings.OCI_COMPARTMENT_OCID:
+        if self.provider == "oci" and self._client and settings.OCI_COMPARTMENT_OCID:
             try:
                 from oci.generative_ai_inference import models as oci_models
 
                 serving_mode = self._build_serving_mode(oci_models)
-                chat_request = oci_models.CohereChatRequest(
-                    message=question,
-                    preamble_override=SYSTEM_PROMPT,
-                    documents=build_cohere_documents(retrieved_chunks),
-                    temperature=settings.LLM_TEMPERATURE,
-                    max_tokens=800,
-                    citation_quality=oci_models.CohereChatRequest.CITATION_QUALITY_ACCURATE,
-                    safety_mode=oci_models.CohereChatRequest.SAFETY_MODE_STRICT,
-                    prompt_truncation=oci_models.CohereChatRequest.PROMPT_TRUNCATION_OFF,
-                )
+                model_id = settings.OCI_GENAI_CHAT_MODEL_ID or ""
 
-                # IMPORTANTE: el SDK de OCI espera un ChatDetails como top-level
-                # request, con compartment_id + serving_mode a ese nivel (no
-                # dentro del CohereChatRequest). Pasar el CohereChatRequest
-                # directo a .chat() es inválido y siempre falla.
-                chat_details = oci_models.ChatDetails(
-                    compartment_id=settings.OCI_COMPARTMENT_OCID,
-                    serving_mode=serving_mode,
-                    chat_request=chat_request,
-                )
+                if model_id.startswith("cohere."):
+                    text = self._call_oci_cohere(oci_models, question, retrieved_chunks, serving_mode)
+                else:
+                    text = self._call_oci_generic(oci_models, question, retrieved_chunks, serving_mode)
 
-                result = self._client.chat(chat_details).data
-                chat_response = getattr(result, "chat_response", None)
-                if chat_response is not None and getattr(chat_response, "text", None):
-                    return chat_response.text
+                if text:
+                    return text
             except Exception as exc:
                 # Si la integración OCI falla, lo dejamos visible en consola para
                 # poder depurar (antes se tragaba el error en silencio).
-                print(f"  ⚠️  Error al generar respuesta con OCI Cohere: {exc}")
+                print(f"  ⚠️  Error al generar respuesta con OCI Generative AI: {exc}")
 
             return (
                 "No encontré esta información en los documentos disponibles. "
-                "Revisa que la configuración de OCI Cohere esté completa antes de volver a intentar."
+                "Revisa que la configuración de OCI Generative AI esté completa antes de volver a intentar."
             )
 
         if self.provider == "openai":
+            user_prompt = build_user_prompt(question, retrieved_chunks)
             response = self._client.chat.completions.create(
                 model=settings.LLM_MODEL_NAME,
                 temperature=settings.LLM_TEMPERATURE,
