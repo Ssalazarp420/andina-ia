@@ -7,5 +7,7 @@ __pycache__/
 data/raw/*
 data/processed/*
 logs/*
-vector_store/
+# vector_store/ se incluye a propósito: el índice ya generado localmente
+# (chroma.sqlite3 + colección) debe viajar dentro de la imagen para que el
+# contenedor arranque con la base de conocimiento ya indexada.
 .pytest_cache/
