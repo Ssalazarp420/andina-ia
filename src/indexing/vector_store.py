@@ -12,7 +12,18 @@ class VectorStore:
     def __init__(self, collection_name: str | None = None):
         self.collection_name = collection_name or settings.VECTOR_DB_COLLECTION_NAME
         self._client = self._init_client()
-        self._collection = self._client.get_or_create_collection(self.collection_name)
+
+        # IMPORTANTE: por defecto Chroma usa distancia L2 (euclidiana al
+        # cuadrado), que NO es acotada a [0, 2]. El reranker (fallback local
+        # en src/retrieval/reranker.py) calcula score = 1 - distance asumiendo
+        # distancia coseno, así que si la colección queda en L2 el score da
+        # 0.0 para casi todo y el SCORE_THRESHOLD descarta todos los chunks
+        # (siempre responde "no encontré información", sin importar la
+        # pregunta). Forzamos coseno explícitamente al crear la colección.
+        self._collection = self._client.get_or_create_collection(
+            self.collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
 
     def _init_client(self):
         if settings.VECTOR_DB_PROVIDER == "chroma":

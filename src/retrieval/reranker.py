@@ -16,6 +16,7 @@ class Reranker:
         if self.provider == "cohere":
             try:
                 import oci
+                from oci.retry import NoneRetryStrategy
 
                 if not settings.OCI_COMPARTMENT_OCID:
                     return None
@@ -26,8 +27,14 @@ class Reranker:
 
                 from oci.generative_ai_inference import GenerativeAiInferenceClient
 
-                return GenerativeAiInferenceClient(config)
-            except Exception:
+                return GenerativeAiInferenceClient(
+                    config=config,
+                    service_endpoint=settings.OCI_GENAI_INFERENCE_ENDPOINT,
+                    retry_strategy=NoneRetryStrategy(),
+                    timeout=(10, 240),
+                )
+            except Exception as exc:
+                print(f"  ⚠️  No se pudo inicializar el cliente OCI Generative AI (rerank): {exc}")
                 return None
 
         return None
@@ -79,10 +86,16 @@ class Reranker:
 
                 if ranked_candidates:
                     return ranked_candidates[:top_n]
-            except Exception:
-                # Si la llamada OCI falla, pasamos al fallback local.
-                pass
+            except Exception as exc:
+                # El modelo de Rerank de Cohere en OCI hoy solo está disponible en
+                # modo "dedicated" (no on-demand), así que en free tier este except
+                # se va a disparar casi siempre: caemos al fallback local, que es
+                # el reranker "real" en la práctica para este proyecto.
+                print(f"  ⚠️  Rerank OCI no disponible, usando fallback local: {exc}")
 
+        # Fallback local por distancia vectorial. Chroma se configura con
+        # métrica coseno (ver VectorStore), así que 'distance' está en el
+        # rango aproximado [0, 2] y este score queda razonablemente acotado.
         scored = []
         for candidate in candidates:
             distance = candidate.get("distance", 1.0)

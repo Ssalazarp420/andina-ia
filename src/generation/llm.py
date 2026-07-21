@@ -15,6 +15,7 @@ class ResponseGenerator:
         if self.provider == "cohere":
             try:
                 import oci
+                from oci.retry import NoneRetryStrategy
 
                 config = oci.config.from_file(settings.OCI_CONFIG_FILE, settings.OCI_CONFIG_PROFILE)
                 if settings.OCI_REGION:
@@ -22,8 +23,14 @@ class ResponseGenerator:
 
                 from oci.generative_ai_inference import GenerativeAiInferenceClient
 
-                return GenerativeAiInferenceClient(config)
-            except Exception:
+                return GenerativeAiInferenceClient(
+                    config=config,
+                    service_endpoint=settings.OCI_GENAI_INFERENCE_ENDPOINT,
+                    retry_strategy=NoneRetryStrategy(),
+                    timeout=(10, 240),
+                )
+            except Exception as exc:
+                print(f"  ⚠️  No se pudo inicializar el cliente OCI Generative AI (chat): {exc}")
                 return None
 
         if self.provider == "openai":
@@ -69,16 +76,26 @@ class ResponseGenerator:
                     citation_quality=oci_models.CohereChatRequest.CITATION_QUALITY_ACCURATE,
                     safety_mode=oci_models.CohereChatRequest.SAFETY_MODE_STRICT,
                     prompt_truncation=oci_models.CohereChatRequest.PROMPT_TRUNCATION_OFF,
-                    serving_mode=serving_mode,
                 )
 
-                result = self._client.chat(chat_request).data
+                # IMPORTANTE: el SDK de OCI espera un ChatDetails como top-level
+                # request, con compartment_id + serving_mode a ese nivel (no
+                # dentro del CohereChatRequest). Pasar el CohereChatRequest
+                # directo a .chat() es inválido y siempre falla.
+                chat_details = oci_models.ChatDetails(
+                    compartment_id=settings.OCI_COMPARTMENT_OCID,
+                    serving_mode=serving_mode,
+                    chat_request=chat_request,
+                )
+
+                result = self._client.chat(chat_details).data
                 chat_response = getattr(result, "chat_response", None)
                 if chat_response is not None and getattr(chat_response, "text", None):
                     return chat_response.text
-            except Exception:
-                # Si la integración OCI falla, usamos la ruta anterior.
-                pass
+            except Exception as exc:
+                # Si la integración OCI falla, lo dejamos visible en consola para
+                # poder depurar (antes se tragaba el error en silencio).
+                print(f"  ⚠️  Error al generar respuesta con OCI Cohere: {exc}")
 
             return (
                 "No encontré esta información en los documentos disponibles. "
