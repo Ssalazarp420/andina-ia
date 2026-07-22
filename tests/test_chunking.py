@@ -30,9 +30,11 @@ def test_fixed_size_chunking_raises_on_invalid_params():
 def test_build_chunks_with_metadata_includes_base_fields():
     text = "Política de reembolso de Andina Bank. " * 50
     metadata = {"empresa_origen": "Andina Bank", "categoria": "Financiero y Contable"}
+    segments = [("Sección 1", text)]
 
-    chunks = build_chunks_with_metadata(text, metadata, chunk_size=200, overlap=30)
+    chunks = build_chunks_with_metadata(segments, metadata, chunk_size=200, overlap=30)
 
     assert len(chunks) > 0
     assert chunks[0].metadata["empresa_origen"] == "Andina Bank"
+    assert chunks[0].metadata["seccion_origen"] == "Sección 1"
     assert "chunk_index" in chunks[0].metadata
