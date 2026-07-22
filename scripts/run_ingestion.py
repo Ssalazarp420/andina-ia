@@ -57,13 +57,19 @@ def run() -> None:
         print(f"Procesando: {file_path.name}")
 
         try:
-            raw_text = extract_document(str(file_path))
+            raw_segments = extract_document(str(file_path))
         except ExtractionError as e:
             print(f"  ❌ Error de extracción: {e}")
             failed_count += 1
             continue
 
-        cleaned = clean_text(raw_text)
+        # Cada segmento (página, slide, hoja, sección) se limpia por separado
+        # para no perder la etiqueta de ubicación que se usará en la citación.
+        cleaned_segments = [
+            (seccion_origen, clean_text(segment_text))
+            for seccion_origen, segment_text in raw_segments
+        ]
+        cleaned_segments = [(s, t) for s, t in cleaned_segments if t.strip()]
 
         base_metadata = {
             "empresa_origen": "Andina Bank",
@@ -72,7 +78,7 @@ def run() -> None:
             "formato_archivo": file_path.suffix.lower(),
         }
 
-        chunks = build_chunks_with_metadata(cleaned, base_metadata)
+        chunks = build_chunks_with_metadata(cleaned_segments, base_metadata)
 
         if not chunks:
             print("  ⚠️  Documento vacío tras la limpieza, se omite.")

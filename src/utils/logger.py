@@ -29,7 +29,9 @@ def log_interaction(
         "retrieved_sources": [
             {
                 "origen_archivo": c.get("metadata", {}).get("origen_archivo"),
+                "seccion_origen": c.get("metadata", {}).get("seccion_origen"),
                 "score": c.get("score"),
+                "texto": c.get("text"),
             }
             for c in retrieved_chunks
         ],

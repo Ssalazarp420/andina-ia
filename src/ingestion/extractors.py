@@ -1,78 +1,113 @@
 """
 Fase 2 - Extracción por formato.
-Cada función recibe la ruta de un archivo y devuelve texto crudo (sin limpiar).
+Cada función recibe la ruta de un archivo y devuelve una lista de segmentos
+(etiqueta_de_ubicación, texto), en vez de un único string plano. Esto permite
+que la Fase 2 (chunking) y la Fase 5 (citación) sepan de qué página, slide,
+hoja o sección exacta vino cada fragmento de texto.
 El manejo de errores es obligatorio: un archivo corrupto NO debe tumbar el pipeline completo.
 """
 
 from pathlib import Path
+
+Segment = tuple[str, str]  # (etiqueta_de_ubicacion, texto)
 
 
 class ExtractionError(Exception):
     """Error controlado al extraer contenido de un documento."""
 
 
-def extract_pdf(file_path: str) -> str:
+def extract_pdf(file_path: str) -> list[Segment]:
     """
-    Extrae texto de un PDF. Si el PDF es escaneado (imagen), debe
-    hacer fallback a OCR (pendiente: integrar pytesseract / OCR de OCI Vision).
+    Extrae texto de un PDF, página por página. Si el PDF es escaneado (imagen),
+    debe hacer fallback a OCR (pendiente: integrar pytesseract / OCR de OCI Vision).
     """
     try:
         import pdfplumber
 
-        text_chunks = []
+        segments: list[Segment] = []
         with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text() or ""
-                text_chunks.append(page_text)
+            for i, page in enumerate(pdf.pages, start=1):
+                page_text = (page.extract_text() or "").strip()
+                if page_text:
+                    segments.append((f"Página {i}", page_text))
 
-        full_text = "\n".join(text_chunks).strip()
-
-        if not full_text:
+        if not segments:
             # TODO: Fase 2 - fallback a OCR cuando el PDF es una imagen escaneada
             raise ExtractionError(
                 f"'{file_path}' no devolvió texto extraíble. Posible PDF escaneado: requiere OCR."
             )
 
-        return full_text
+        return segments
 
+    except ExtractionError:
+        raise
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer PDF '{file_path}': {exc}") from exc
 
 
-def extract_docx(file_path: str) -> str:
-    """Extrae texto de un Word, preservando títulos/párrafos en orden."""
+def extract_docx(file_path: str) -> list[Segment]:
+    """
+    Extrae texto de un Word, preservando títulos/párrafos en orden.
+    Usa el último título (Heading) visto como etiqueta de sección para los
+    párrafos que le siguen, así se conserva la jerarquía del documento.
+    """
     try:
         import docx
 
         document = docx.Document(file_path)
-        return "\n".join(p.text for p in document.paragraphs if p.text.strip())
+        segments: list[Segment] = []
+        current_section = "Inicio del documento"
+        buffer: list[str] = []
+
+        def flush():
+            text = "\n".join(buffer).strip()
+            if text:
+                segments.append((current_section, text))
+
+        for p in document.paragraphs:
+            if not p.text.strip():
+                continue
+            if p.style and p.style.name and p.style.name.lower().startswith("heading"):
+                flush()
+                buffer.clear()
+                current_section = p.text.strip()
+            else:
+                buffer.append(p.text)
+
+        flush()
+        return segments
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer DOCX '{file_path}': {exc}") from exc
 
 
-def extract_xlsx(file_path: str) -> str:
+def extract_xlsx(file_path: str) -> list[Segment]:
     """
-    Convierte cada fila en una frase estructurada, repitiendo encabezados
-    de columna (según la estrategia definida en Fase 2 para datos tabulares).
+    Convierte cada hoja en un segmento propio, con las filas como frases
+    estructuradas que repiten los encabezados de columna (estrategia definida
+    en Fase 2 para datos tabulares).
     """
     try:
         import pandas as pd
 
         sheets = pd.read_excel(file_path, sheet_name=None)
-        rows_as_text = []
+        segments: list[Segment] = []
 
         for sheet_name, df in sheets.items():
-            for _, row in df.iterrows():
-                row_text = ", ".join(f"{col}: {row[col]}" for col in df.columns)
-                rows_as_text.append(f"[Hoja: {sheet_name}] {row_text}")
+            rows_as_text = [
+                ", ".join(f"{col}: {row[col]}" for col in df.columns)
+                for _, row in df.iterrows()
+            ]
+            sheet_text = "\n".join(rows_as_text).strip()
+            if sheet_text:
+                segments.append((f"Hoja: {sheet_name}", sheet_text))
 
-        return "\n".join(rows_as_text)
+        return segments
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer XLSX '{file_path}': {exc}") from exc
 
 
-def extract_csv(file_path: str) -> str:
-    """Misma lógica que XLSX pero para CSV."""
+def extract_csv(file_path: str) -> list[Segment]:
+    """Misma lógica que XLSX pero para CSV (un único segmento, sin hojas)."""
     try:
         import pandas as pd
 
@@ -81,18 +116,19 @@ def extract_csv(file_path: str) -> str:
             ", ".join(f"{col}: {row[col]}" for col in df.columns)
             for _, row in df.iterrows()
         ]
-        return "\n".join(rows_as_text)
+        text = "\n".join(rows_as_text).strip()
+        return [("Tabla completa", text)] if text else []
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer CSV '{file_path}': {exc}") from exc
 
 
-def extract_pptx(file_path: str) -> str:
-    """Extrae texto de cada slide, incluyendo notas del orador."""
+def extract_pptx(file_path: str) -> list[Segment]:
+    """Extrae texto de cada diapositiva (un segmento por slide), incluyendo notas del orador."""
     try:
         from pptx import Presentation
 
         prs = Presentation(file_path)
-        slides_text = []
+        segments: list[Segment] = []
 
         for i, slide in enumerate(prs.slides, start=1):
             slide_text = []
@@ -104,25 +140,31 @@ def extract_pptx(file_path: str) -> str:
             if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
                 notes = slide.notes_slide.notes_text_frame.text
 
-            combined = "\n".join(slide_text)
-            slides_text.append(f"[Slide {i}] {combined}\n[Notas] {notes}")
+            combined = "\n".join(slide_text).strip()
+            if notes.strip():
+                combined = f"{combined}\n[Notas del orador] {notes}".strip()
 
-        return "\n\n".join(slides_text)
+            if combined:
+                segments.append((f"Diapositiva {i}", combined))
+
+        return segments
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer PPTX '{file_path}': {exc}") from exc
 
 
-def extract_markdown_or_html(file_path: str) -> str:
-    """Limpia marcas de Markdown/HTML manteniendo el contenido legible."""
+def extract_markdown_or_html(file_path: str) -> list[Segment]:
+    """Limpia marcas de Markdown/HTML manteniendo el contenido legible (un único segmento)."""
     try:
         from bs4 import BeautifulSoup
 
         raw = Path(file_path).read_text(encoding="utf-8", errors="ignore")
 
         if file_path.lower().endswith((".html", ".htm")):
-            return BeautifulSoup(raw, "html.parser").get_text(separator="\n").strip()
+            text = BeautifulSoup(raw, "html.parser").get_text(separator="\n").strip()
+        else:
+            text = raw  # Markdown se limpia con más detalle en cleaning.py
 
-        return raw  # Markdown se limpia con más detalle en cleaning.py
+        return [("Documento completo", text)] if text.strip() else []
     except Exception as exc:
         raise ExtractionError(f"Fallo al extraer Markdown/HTML '{file_path}': {exc}") from exc
 
@@ -139,8 +181,11 @@ EXTRACTOR_BY_EXTENSION = {
 }
 
 
-def extract_document(file_path: str) -> str:
-    """Router principal: elige el extractor correcto según la extensión del archivo."""
+def extract_document(file_path: str) -> list[Segment]:
+    """
+    Router principal: elige el extractor correcto según la extensión del archivo.
+    Devuelve una lista de segmentos (etiqueta_de_ubicacion, texto).
+    """
     extension = Path(file_path).suffix.lower()
     extractor = EXTRACTOR_BY_EXTENSION.get(extension)
 
