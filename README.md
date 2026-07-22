@@ -59,7 +59,7 @@ Se implementó en cascada, de mayor a menor precisión:
 ## 🚀 Guía de Despliegue Local
 ```bash
 # 1. Clonar el repositorio
-git clone <URL_DEL_REPO>
+git clone https://github.com/Ssalazarp420/andina-ia.git
 cd andina-ia
 
 # 2. Crear entorno virtual
